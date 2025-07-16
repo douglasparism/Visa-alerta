@@ -14,7 +14,7 @@
 
 ### Prerequisites
 - Docker
-- [SendGrid](https://sendgrid.com/) account & API key
+- [Mailgun](https://www.mailgun.com/) account & API key
 
 ### Local Setup
 

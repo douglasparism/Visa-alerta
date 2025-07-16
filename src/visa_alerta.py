@@ -5,17 +5,17 @@ import time
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-# Load env
+# Load environment variables
 load_dotenv()
 
-# Config
+# Configuration
 VISA_EMAIL = os.getenv("VISA_EMAIL")
 VISA_PASS = os.getenv("VISA_PASS")
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+MAILGUN_API_KEY = os.getenv("MAILGUN_API_KEY")
+MAILGUN_DOMAIN = os.getenv("MAILGUN_DOMAIN")
 EMAIL_FROM = os.getenv("EMAIL_FROM")
 EMAIL_TO = os.getenv("EMAIL_TO")
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 600))
@@ -23,7 +23,7 @@ STATE_FILE = "last_slots.json"
 LOGIN_URL = "https://ais.usvisa-info.com/es-mx/niv/users/sign_in"
 APPT_URL = "https://ais.usvisa-info.com/es-mx/niv/schedule/62993213/appointment"
 
-# Logging
+# Logging setup
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger("visa-alerta")
 
@@ -56,18 +56,22 @@ def load_previous():
 
 
 def save_current(slots):
-    json.dump(slots, open(STATE_FILE, "w"))
+    with open(STATE_FILE, "w") as f:
+        json.dump(slots, f)
 
 
 def send_email(new_slots):
-    message = Mail(
-        from_email=EMAIL_FROM,
-        to_emails=EMAIL_TO,
-        subject="🛎️ New US Visa Appointment Slot",
-        plain_text_content=f"Earliest slot: {new_slots[0]}"
+    earliest = new_slots[0]
+    return requests.post(
+        f"https://api.mailgun.net/v3/{MAILGUN_DOMAIN}/messages",
+        auth=("api", MAILGUN_API_KEY),
+        data={
+            "from": EMAIL_FROM,
+            "to": [EMAIL_TO],
+            "subject": "🛎️ New US Visa Appointment Slot",
+            "text": f"Earliest slot: {earliest}"
+        }
     )
-    sg = SendGridAPIClient(SENDGRID_API_KEY)
-    sg.send(message)
 
 
 def main():
@@ -84,8 +88,9 @@ def main():
                 logger.info("No new slots.")
             save_current(current)
         except Exception as e:
-            logger.error(f"Error: {e}")
+            logger.error(f"Error checking slots: {e}")
         time.sleep(POLL_INTERVAL)
+
 
 if __name__ == "__main__":
     main()
