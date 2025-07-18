@@ -8,3 +8,5 @@ build/
 dist/
 *.egg-info/
 .venv/
+local_test.py
+local_nb.ipynb
